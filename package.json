@@ -6,7 +6,7 @@
   "homepage": "https://gavr2k02.github.io/crash-parser",
   "scripts": {
     "predeploy": "yarn build",
-    "deploy": "gh-pages -d build",
+    "deploy": "gh-pages -d dist",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
