@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://gavr2k02.github.io/crash-parser",
+  "homepage": "https://gavr2k02.github.io",
   "scripts": {
     "predeploy": "yarn build",
     "deploy": "gh-pages -d dist",
