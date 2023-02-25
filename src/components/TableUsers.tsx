@@ -6,7 +6,9 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
+  TableSortLabel,
   Typography,
 } from '@mui/material';
 
@@ -14,6 +16,65 @@ import { useEffect, useState } from 'react';
 import { api } from '../services';
 
 import { clone } from 'lodash';
+
+const heads = [
+  {
+    id: 'userId',
+    label: 'USER ID:',
+  },
+  {
+    id: 'count',
+    label: 'GAMES COUNT:',
+  },
+  {
+    id: 'percentage',
+    label: 'PERCENTAGE',
+  },
+  {
+    id: 'maxBet',
+    label: 'MAX BET',
+  },
+  {
+    id: 'minBet',
+    label: 'MIN BET',
+  },
+  {
+    id: 'aBet',
+    label: 'AVERAGE BET',
+  },
+  {
+    id: 'maxReturn',
+    label: 'MAX RETURN',
+  },
+  {
+    id: 'minReturn',
+    label: 'MIN RETURN',
+  },
+  {
+    id: 'aReturn',
+    label: 'AVERAGE RETURN',
+  },
+  {
+    id: 'lose',
+    label: 'LOSE',
+  },
+  {
+    id: 'pLose',
+    label: 'PERCENTAGE LOSE',
+  },
+  {
+    id: 'maxRatio',
+    label: 'MAX RATIO',
+  },
+  {
+    id: 'minRatio',
+    label: 'MIN RATIO',
+  },
+  {
+    id: 'aRatio',
+    label: 'AVERAGE RATIO',
+  },
+];
 
 function TableUsers() {
   const [stage, setStage] = useState('STAGE WAIT...');
@@ -31,17 +92,34 @@ function TableUsers() {
   useEffect(() => api.minCount.subscribe(setMinCount));
   useEffect(() => api.averageCount.subscribe(setACount));
 
+  const [sortBy, setSortBy] = useState('count');
+  const [sort, setSort] = useState<any>('desc');
+
   const isMobile = window.innerWidth <= 460;
   const values = clone(users);
+  const length = Object.keys(values).length;
+
+  const [page, setPage] = useState(0);
 
   Object.keys(values).forEach((item) => {
     values[item].percentage = +((values[item].returnCount / values[item].count) * 100).toFixed(2);
     values[item].lose = values[item].totalBet - values[item].totalReturn;
+    values[item].pLose = (values[item].totalReturn / values[item].totalBet || 0) * 100;
   });
 
   const show = Object.values(values)
-    .sort((a: any, b: any) => b.count - a.count)
-    .slice(0, 10);
+    .sort((a, b) => (sort === 'asc' ? a[sortBy] - b[sortBy] : b[sortBy] - a[sortBy]))
+    .splice(page * 10, 10);
+
+  const handleSortClick = (id: string) => {
+    if (id === sortBy) {
+      setSort(sort === 'asc' ? 'desc' : 'asc');
+      return;
+    }
+
+    setSort('desc');
+    setSortBy(id);
+  };
 
   return (
     <Box sx={main}>
@@ -77,25 +155,17 @@ function TableUsers() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell align='right'>{isMobile ? 'ID' : 'USER ID'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'GC' : 'GAMES COUNT'}</TableCell>
-
-                <TableCell align='right'>{isMobile ? 'MaB' : 'PERCENTAGE'}</TableCell>
-
-                <TableCell align='right'>{isMobile ? 'MaB' : 'MAX BET'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'MiB' : 'MIN BET'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'B' : 'AVERAGE BET'}</TableCell>
-
-                <TableCell align='right'>{isMobile ? 'MaB' : 'MAX RETURN'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'MiB' : 'MIN RETURN'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'B' : 'AVERAGE RETURN'}</TableCell>
-
-                <TableCell align='right'>{isMobile ? 'W' : 'LOSE'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'W' : 'PERCENTAGE LOSE'}</TableCell>
-
-                <TableCell align='right'>{isMobile ? 'Ra' : 'MAX RATIO'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'Ra' : 'MIN RATIO'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'Ra' : 'AVERAGE RATIO'}</TableCell>
+                {heads.map((item, idx) => (
+                  <TableCell key={idx} align='right'>
+                    <TableSortLabel
+                      active={item.id === sortBy}
+                      direction={sortBy === item.id ? sort : 'asc'}
+                      onClick={() => handleSortClick(item.id)}
+                    >
+                      {isMobile ? item.label.slice(0, 2) : item.label}
+                    </TableSortLabel>
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -128,6 +198,15 @@ function TableUsers() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination
+            component='div'
+            rowsPerPageOptions={[]}
+            count={length}
+            rowsPerPage={10}
+            page={page}
+            onPageChange={(e, page) => setPage(page)}
+            sx={{ overflow: 'hidden' }}
+          />
         </TableContainer>
       </Box>
     </Box>

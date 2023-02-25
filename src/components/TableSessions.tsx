@@ -7,12 +7,41 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Typography,
+  TablePagination,
 } from '@mui/material';
 
 import { useEffect, useState } from 'react';
-import { times } from 'lodash';
+import { times, clone } from 'lodash';
 import { api } from '../services';
+
+const heads = [
+  {
+    id: 'count',
+    label: 'USERS:',
+  },
+  {
+    id: 'bet',
+    label: 'TURNOVER:',
+  },
+  {
+    id: 'won',
+    label: 'RETURNED',
+  },
+  {
+    id: 'lose',
+    label: 'LOST',
+  },
+  {
+    id: 'percentage',
+    label: 'PERCENTAGE',
+  },
+  {
+    id: 'date',
+    label: 'DATE',
+  },
+];
 
 function TableSessions() {
   const [totalBet, setTotalBet] = useState(0);
@@ -27,6 +56,11 @@ function TableSessions() {
 
   const [sessions, setSessions] = useState([]);
 
+  const [sortBy, setSortBy] = useState('date');
+  const [sort, setSort] = useState<any>('desc');
+
+  const [page, setPage] = useState(0);
+
   useEffect(() => api.totalBet.subscribe(setTotalBet));
   useEffect(() => api.totalWon.subscribe(setTotalWon));
 
@@ -39,6 +73,26 @@ function TableSessions() {
   useEffect(() => api.prevSessions.subscribe(setSessions));
 
   const isMobile = window.innerWidth <= 460;
+
+  const data = clone(sessions);
+  data.forEach((item) => {
+    item.lose = item.bet - item.won;
+    item.percentage = (item.won / item?.bet) * 100;
+  });
+
+  const values = data
+    .sort((a, b) => (sort === 'asc' ? a[sortBy] - b[sortBy] : b[sortBy] - a[sortBy]))
+    .splice(page * 10, 10);
+
+  const handleSortClick = (id: string) => {
+    if (id === sortBy) {
+      setSort(sort === 'asc' ? 'desc' : 'asc');
+      return;
+    }
+
+    setSort('desc');
+    setSortBy(id);
+  };
 
   return (
     <Box sx={main}>
@@ -83,12 +137,17 @@ function TableSessions() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell align='right'>{isMobile ? 'Us' : 'USERS'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'Tu' : 'TURNOVER'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'Re' : 'RETURNED'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'Lo' : 'LOST'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'Pe' : 'PERCENTAGE'}</TableCell>
-                <TableCell align='right'>{isMobile ? 'Da' : 'DATE'}</TableCell>
+                {heads.map((item, idx) => (
+                  <TableCell key={idx} align='right'>
+                    <TableSortLabel
+                      active={item.id === sortBy}
+                      direction={sortBy === item.id ? sort : 'asc'}
+                      onClick={() => handleSortClick(item.id)}
+                    >
+                      {isMobile ? item.label.slice(0, 2) : item.label}
+                    </TableSortLabel>
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -104,23 +163,27 @@ function TableSessions() {
               </TableRow>
               {times(10).map((idx) => (
                 <TableRow key={idx}>
-                  <TableCell align='right'>{sessions[idx]?.count || 0}</TableCell>
-                  <TableCell align='right'>{getNumber(sessions[idx]?.bet)}</TableCell>
-                  <TableCell align='right'>{getNumber(sessions[idx]?.won)}</TableCell>
-                  <TableCell
-                    align='right'
-                    sx={{ color: sessions[idx]?.bet - sessions[idx]?.won >= 0 ? '#F05454' : 'green' }}
-                  >
-                    {getNumber(sessions[idx]?.bet - sessions[idx]?.won)}
+                  <TableCell align='right'>{values[idx]?.count || 0}</TableCell>
+                  <TableCell align='right'>{getNumber(values[idx]?.bet)}</TableCell>
+                  <TableCell align='right'>{getNumber(values[idx]?.won)}</TableCell>
+                  <TableCell align='right' sx={{ color: values[idx]?.lose >= 0 ? '#F05454' : 'green' }}>
+                    {getNumber(values[idx]?.lose)}
                   </TableCell>
-                  <TableCell align='right'>
-                    {((sessions[idx]?.won / sessions[idx]?.bet) * 100 || 0).toFixed(1)}%
-                  </TableCell>
-                  <TableCell align='right'>{sessions[idx]?.date.toISOString() || '...'}</TableCell>
+                  <TableCell align='right'>{(values[idx]?.percentage || 0).toFixed(1)}%</TableCell>
+                  <TableCell align='right'>{values[idx]?.date.toISOString() || '...'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          <TablePagination
+            component='div'
+            rowsPerPageOptions={[]}
+            count={gamesCount}
+            rowsPerPage={10}
+            page={page}
+            onPageChange={(e, page) => setPage(page)}
+            sx={{ overflow: 'hidden' }}
+          />
         </TableContainer>
       </Box>
     </Box>
