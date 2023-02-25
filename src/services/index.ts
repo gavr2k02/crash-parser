@@ -1,17 +1,24 @@
-import { Signal } from '../signal/Signal';
+import { mean } from 'lodash';
+import { ReplaySignal } from '../signal/ReplaySignal';
 
 class API {
-  public readonly gameStage: Signal<any> = new Signal();
+  public readonly gameStage: ReplaySignal<any> = new ReplaySignal();
 
-  public readonly totalBet: Signal<any> = new Signal();
-  public readonly totalWon: Signal<any> = new Signal();
-  public readonly gamesCount: Signal<any> = new Signal();
+  public readonly totalBet: ReplaySignal<any> = new ReplaySignal();
+  public readonly totalWon: ReplaySignal<any> = new ReplaySignal();
+  public readonly gamesCount: ReplaySignal<any> = new ReplaySignal();
 
-  public readonly sessionBet: Signal<any> = new Signal();
-  public readonly sessionWon: Signal<any> = new Signal();
-  public readonly usersSessionCount: Signal<any> = new Signal();
+  public readonly sessionBet: ReplaySignal<any> = new ReplaySignal();
+  public readonly sessionWon: ReplaySignal<any> = new ReplaySignal();
+  public readonly usersSessionCount: ReplaySignal<any> = new ReplaySignal();
 
-  public readonly prevSession: Signal<any> = new Signal();
+  public readonly prevSessions: ReplaySignal<any> = new ReplaySignal();
+
+  public readonly maxCount: ReplaySignal<any> = new ReplaySignal();
+  public readonly minCount: ReplaySignal<any> = new ReplaySignal();
+  public readonly averageCount: ReplaySignal<any> = new ReplaySignal();
+
+  public gameUsers: ReplaySignal<any> = new ReplaySignal();
 
   private bet: number = 0;
   private won: number = 0;
@@ -20,6 +27,15 @@ class API {
   private sWon: number = 0;
   private usersCount: number = 0;
   private gCount: number = 0;
+
+  private maCount = 0;
+  private miCount = 0;
+  private historyCount = [];
+
+  private users: any = {};
+  private prevSessionsValues = [];
+
+  private ready = false;
 
   constructor() {
     setInterval(() => {
@@ -34,10 +50,7 @@ class API {
   private socket: WebSocket;
 
   public init = async (url: string) => {
-    console.log('init');
     this.socket = new WebSocket(url);
-
-    console.log('created');
     this.socket.onmessage = this.handleSocketMessage;
 
     await delay(500);
@@ -58,20 +71,89 @@ class API {
 
     const message = JSON.parse(event.data.substring(2, event.data.length));
 
-    if (message[0] === 'crash.completeBids') {
-      const sum = message[1].reduce((acc, item) => acc + item.win, 0);
-      this.won += sum;
-      this.sWon += sum;
+    if (message[0] === 'crash.state') {
+      if (message[1] === 'wait') {
+        this.ready = true;
+      }
+    }
+
+    if (!this.ready) {
       return;
     }
 
     if (message[0] === 'crash.newBids') {
+      message[1].forEach((item) => {
+        const userId = item.user.id;
+        const game = item.game;
+
+        if (!this.users[userId]) {
+          this.users[userId] = {
+            userId: item.user.id,
+            name: item.user.name,
+            count: 0,
+            returnCount: 0,
+            maxBet: 0,
+            minBet: 0,
+            aBet: 0,
+            totalBet: 0,
+            maxReturn: 0,
+            minReturn: 0,
+            aReturn: 0,
+            totalReturn: 0,
+            maxRatio: 0,
+            minRatio: 0,
+            aRatio: 0,
+            totalRatio: 0,
+          };
+        }
+
+        this.users[userId].count = this.users[userId].count + 1;
+
+        if (this.users[userId].maxBet < game.bet) {
+          this.users[userId].maxBet = game.bet;
+        }
+        if (this.users[userId].minBet > game.bet || !this.users[userId].minBet) {
+          this.users[userId].minBet = game.bet;
+        }
+        this.users[userId].totalBet += game.bet;
+        this.users[userId].aBet = this.users[userId].totalBet / this.users[userId].count;
+      });
+
       const length = message[1].length;
 
       const sum = message[1].reduce((acc, item) => acc + item.game.bet, 0);
       this.bet += sum;
       this.sBet += sum;
       this.usersCount += length;
+      return;
+    }
+
+    if (message[0] === 'crash.completeBids') {
+      message[1].forEach((item) => {
+        const userId = item.userId;
+
+        this.users[userId].returnCount = this.users[userId].returnCount + 1;
+        if (this.users[userId].maxReturn < item.win) {
+          this.users[userId].maxReturn = item.win;
+        }
+        if (this.users[userId].minReturn > item.win || !this.users[userId].minReturn) {
+          this.users[userId].minReturn = item.win;
+        }
+        this.users[userId].totalReturn += item.win;
+        this.users[userId].aReturn = this.users[userId].totalReturn / this.users[userId].returnCount;
+        if (this.users[userId].maxRatio < item.ratio) {
+          this.users[userId].maxRatio = item.ratio;
+        }
+        if (this.users[userId].minRatio > item.ratio || !this.users[userId].minRatio) {
+          this.users[userId].minRatio = item.ratio;
+        }
+        this.users[userId].totalRatio += item.ratio;
+        this.users[userId].aRatio = this.users[userId].totalRatio / this.users[userId].returnCount;
+      });
+
+      const sum = message[1].reduce((acc, item) => acc + item.win, 0);
+      this.won += sum;
+      this.sWon += sum;
       return;
     }
 
@@ -84,8 +166,24 @@ class API {
   };
 
   private clearSessionBitsAndEmitPrevSession = () => {
-    this.prevSession.emit({ won: Math.round(this.sWon), bet: Math.round(this.sBet), count: this.usersCount });
+    this.historyCount.push(this.usersCount);
+    this.maCount = this.maCount < this.usersCount || !this.maCount ? this.usersCount : this.maCount;
+    this.miCount = this.miCount > this.usersCount || !this.miCount ? this.usersCount : this.miCount;
+
+    this.maxCount.emit(this.maCount);
+    this.minCount.emit(this.miCount);
+    this.averageCount.emit(mean(this.historyCount));
+
+    this.prevSessionsValues.push({
+      won: Math.round(this.sWon),
+      bet: Math.round(this.sBet),
+      count: this.usersCount,
+      date: new Date(),
+    });
+    this.prevSessions.emit(this.prevSessionsValues.slice().reverse());
     this.gamesCount.emit(++this.gCount);
+
+    this.gameUsers.emit(this.users);
 
     this.sBet = 0;
     this.sWon = 0;
