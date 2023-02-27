@@ -34,6 +34,10 @@ const heads = [
     label: 'LOST',
   },
   {
+    id: 'ratio',
+    label: 'RATIO',
+  },
+  {
     id: 'percentage',
     label: 'PERCENTAGE',
   },
@@ -51,6 +55,7 @@ function TableSessions() {
   const [sessionBet, setSessionBet] = useState(0);
   const [sessionWon, setSessionWon] = useState(0);
   const [countUsers, setCountUsers] = useState(0);
+  const [ratio, setRatio] = useState(0);
 
   const [gamesCount, setGamesCount] = useState(0);
 
@@ -63,6 +68,7 @@ function TableSessions() {
 
   useEffect(() => api.totalBet.subscribe(setTotalBet));
   useEffect(() => api.totalWon.subscribe(setTotalWon));
+  useEffect(() => api.sessionRatio.subscribe(setRatio));
 
   useEffect(() => api.sessionBet.subscribe(setSessionBet));
   useEffect(() => api.sessionWon.subscribe(setSessionWon));
@@ -158,6 +164,7 @@ function TableSessions() {
                 <TableCell align='right' sx={{ color: sessionBet - sessionWon >= 0 ? '#F05454' : 'green' }}>
                   {getNumber(sessionBet - sessionWon)}
                 </TableCell>
+                <TableCell align='right'>{(ratio < 1 ? 0 : ratio).toFixed(2)}</TableCell>
                 <TableCell align='right'>{((sessionWon / sessionBet) * 100 || 0).toFixed(1)}%</TableCell>
                 <TableCell align='right'>...</TableCell>
               </TableRow>
@@ -169,6 +176,7 @@ function TableSessions() {
                   <TableCell align='right' sx={{ color: values[idx]?.lose >= 0 ? '#F05454' : 'green' }}>
                     {getNumber(values[idx]?.lose)}
                   </TableCell>
+                  <TableCell align='right'>{(values[idx]?.ratio || 0).toFixed(2)}</TableCell>
                   <TableCell align='right'>{(values[idx]?.percentage || 0).toFixed(1)}%</TableCell>
                   <TableCell align='right'>{values[idx]?.date.toISOString() || '...'}</TableCell>
                 </TableRow>

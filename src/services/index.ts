@@ -10,6 +10,7 @@ class API {
 
   public readonly sessionBet: ReplaySignal<any> = new ReplaySignal();
   public readonly sessionWon: ReplaySignal<any> = new ReplaySignal();
+  public readonly sessionRatio: ReplaySignal<any> = new ReplaySignal();
   public readonly usersSessionCount: ReplaySignal<any> = new ReplaySignal();
 
   public readonly prevSessions: ReplaySignal<any> = new ReplaySignal();
@@ -34,8 +35,11 @@ class API {
 
   private users: any = {};
   private prevSessionsValues = [];
+  private ratio = 0;
+  private ratioTimer;
 
   private ready = false;
+  private startTime;
 
   constructor() {
     setInterval(() => {
@@ -44,6 +48,7 @@ class API {
       this.sessionBet.emit(Math.round(this.sBet));
       this.sessionWon.emit(Math.round(this.sWon));
       this.usersSessionCount.emit(this.usersCount);
+      this.sessionRatio.emit(this.ratio);
     }, 100);
   }
 
@@ -159,13 +164,31 @@ class API {
 
     if (message[0] === 'crash.state') {
       this.gameStage.emit(message[1].toUpperCase());
+
+      if (message[1] === 'game') {
+        this.startTime = new Date();
+        this.startTimer();
+      }
+
       if (message[1] === 'complete') {
         return this.clearSessionBitsAndEmitPrevSession();
       }
     }
   };
 
+  private startTimer = () => {
+    this.ratio = Math.floor(100 * Math.pow(Math.E, 12e-5 * ((new Date() as any) - this.startTime))) / 100 - 0.03;
+    this.ratioTimer = setTimeout(() => this.startTimer(), 30);
+  };
+
+  private stopTimeRatio = () => {
+    this.startTime = undefined;
+    clearTimeout(this.ratioTimer);
+  };
+
   private clearSessionBitsAndEmitPrevSession = () => {
+    this.stopTimeRatio();
+
     this.historyCount.push(this.usersCount);
     this.maCount = this.maCount < this.usersCount || !this.maCount ? this.usersCount : this.maCount;
     this.miCount = this.miCount > this.usersCount || !this.miCount ? this.usersCount : this.miCount;
@@ -177,6 +200,7 @@ class API {
     this.prevSessionsValues.push({
       won: Math.round(this.sWon),
       bet: Math.round(this.sBet),
+      ratio: this.ratio < 1 ? 0 : this.ratio,
       count: this.usersCount,
       date: new Date(),
     });
@@ -185,6 +209,7 @@ class API {
 
     this.gameUsers.emit(this.users);
 
+    this.ratio = 0;
     this.sBet = 0;
     this.sWon = 0;
     this.usersCount = 0;
