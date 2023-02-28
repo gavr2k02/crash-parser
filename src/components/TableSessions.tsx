@@ -63,12 +63,14 @@ function TableSessions() {
 
   const [sortBy, setSortBy] = useState('date');
   const [sort, setSort] = useState<any>('desc');
+  const [currentBet, setCurrentBet] = useState(0);
 
   const [page, setPage] = useState(0);
 
   useEffect(() => api.totalBet.subscribe(setTotalBet));
   useEffect(() => api.totalWon.subscribe(setTotalWon));
   useEffect(() => api.sessionRatio.subscribe(setRatio));
+  useEffect(() => api.currentBet.subscribe(setCurrentBet));
 
   useEffect(() => api.sessionBet.subscribe(setSessionBet));
   useEffect(() => api.sessionWon.subscribe(setSessionWon));
@@ -111,6 +113,11 @@ function TableSessions() {
             <Box sx={sxsBoxTotal}>
               <Typography>{isMobile ? 'GC' : 'GAMES COUNT:'}</Typography>
               <Typography sx={{ fontWeight: 'bold' }}>{gamesCount}</Typography>
+            </Box>
+
+            <Box sx={sxsBoxTotal}>
+              <Typography>{isMobile ? 'CB' : 'CURRENT BET:'}</Typography>
+              <Typography sx={{ fontWeight: 'bold' }}>{getNumber(+currentBet.toFixed(1))}</Typography>
             </Box>
 
             {!isMobile && (
@@ -164,7 +171,7 @@ function TableSessions() {
                 <TableCell align='right' sx={{ color: sessionBet - sessionWon >= 0 ? '#F05454' : 'green' }}>
                   {getNumber(sessionBet - sessionWon)}
                 </TableCell>
-                <TableCell align='right'>{(ratio < 1 ? 0 : ratio).toFixed(2)}</TableCell>
+                <TableCell align='right'>{ratio.toFixed(2)}</TableCell>
                 <TableCell align='right'>{((sessionWon / sessionBet) * 100 || 0).toFixed(1)}%</TableCell>
                 <TableCell align='right'>...</TableCell>
               </TableRow>

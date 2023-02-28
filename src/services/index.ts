@@ -11,6 +11,7 @@ class API {
   public readonly sessionBet: ReplaySignal<any> = new ReplaySignal();
   public readonly sessionWon: ReplaySignal<any> = new ReplaySignal();
   public readonly sessionRatio: ReplaySignal<any> = new ReplaySignal();
+  public readonly currentBet: ReplaySignal<any> = new ReplaySignal();
   public readonly usersSessionCount: ReplaySignal<any> = new ReplaySignal();
 
   public readonly prevSessions: ReplaySignal<any> = new ReplaySignal();
@@ -40,6 +41,7 @@ class API {
 
   private ready = false;
   private startTime;
+  private currentBetValue = 0;
 
   constructor() {
     setInterval(() => {
@@ -49,6 +51,7 @@ class API {
       this.sessionWon.emit(Math.round(this.sWon));
       this.usersSessionCount.emit(this.usersCount);
       this.sessionRatio.emit(this.ratio);
+      this.currentBet.emit(this.currentBetValue);
     }, 100);
   }
 
@@ -129,6 +132,7 @@ class API {
       const sum = message[1].reduce((acc, item) => acc + item.game.bet, 0);
       this.bet += sum;
       this.sBet += sum;
+      this.currentBetValue += sum;
       this.usersCount += length;
       return;
     }
@@ -157,6 +161,9 @@ class API {
       });
 
       const sum = message[1].reduce((acc, item) => acc + item.win, 0);
+      const bets = message[1].reduce((acc, item) => acc + Math.floor(item.win / item.ratio), 0);
+
+      this.currentBetValue -= bets;
       this.won += sum;
       this.sWon += sum;
       return;
@@ -177,7 +184,8 @@ class API {
   };
 
   private startTimer = () => {
-    this.ratio = Math.floor(100 * Math.pow(Math.E, 12e-5 * ((new Date() as any) - this.startTime))) / 100 - 0.03;
+    const value = Math.floor(100 * Math.pow(Math.E, 12e-5 * ((new Date() as any) - this.startTime))) / 100 - 0.03;
+    this.ratio = value < 1 ? 0 : value;
     this.ratioTimer = setTimeout(() => this.startTimer(), 30);
   };
 
@@ -200,7 +208,7 @@ class API {
     this.prevSessionsValues.push({
       won: Math.round(this.sWon),
       bet: Math.round(this.sBet),
-      ratio: this.ratio < 1 ? 0 : this.ratio,
+      ratio: this.ratio,
       count: this.usersCount,
       date: new Date(),
     });
@@ -213,6 +221,7 @@ class API {
     this.sBet = 0;
     this.sWon = 0;
     this.usersCount = 0;
+    this.currentBetValue = 0;
   };
 }
 
